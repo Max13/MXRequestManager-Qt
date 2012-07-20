@@ -68,8 +68,11 @@ class MXRequestManager : public QNetworkAccessManager
 	 */
 	public:	typedef	QMap<QString, QString>			MXMap;
 	public:	typedef	QMapIterator<QString, QString>	MXMapIterator;
+	public:	typedef	QMap<QString, QVariant>			MXVMap;
+	public:	typedef	QMapIterator<QString, QVariant>	MXVMapIterator;
 	public:	typedef	QPair<QString, QString>			MXPair;
 	public:	typedef	QList<MXPair>					MXPairList;
+	public:	typedef	QList<QVariant>					MXVList;
 
 	private:
 		QByteArray		m_netDataRaw;

@@ -162,7 +162,7 @@ bool	MXRequestManager::request(QString resource, QString method, MXMap const& da
 	return (this->request(resource, method, params));
 }
 
-bool	MXRequestManager::request(QString resource, QString method, MXPairList const& data)
+bool	MXRequestManager::request(QString resource, QString method, MXPairList const& data = MXPairList())
 {
 	QUrl apiUrl(this->m_netBaseApiUrl);
 	apiUrl.setPath(resource);
