@@ -24,21 +24,25 @@
 # include	<QDebug>
 # include	<QIODevice>
 # include	<QList>
+# include	<QtGui/QMessageBox>
 # include	<QPair>
 # include	<QString>
+// QtNetwork
 # include	<QtNetwork/QAuthenticator>
+# include   <QtNetwork/QHostInfo>
 # include	<QtNetwork/QHttpMultiPart>
 # include	<QtNetwork/QNetworkAccessManager>
 # include	<QtNetwork/QNetworkReply>
 # include	<QtNetwork/QNetworkRequest>
+// ---
 # include	<QUrl>
 # include	<QVariantMap>
 
-//# if		QT_VERSION < 0x050000
-//#	warning	"This version of Qt (Qt < 5.0) doesn't have a built in JSON parser."
+# if		QT_VERSION < 0x050000
+#	warning	"This version of Qt (Qt < 5.0) doesn't have a built in JSON parser."
 #	warning "This library is using QtJson as JSON parser."
-#	include	"json.h"
-//# endif
+#	include	<qtjson/json.h>
+# endif
 
 # define	MXREQUESTMANAGER_NAME		"MXRequestManager"
 # define	MXREQUESTMANAGER_VERSION	"0.1"
@@ -74,16 +78,26 @@ class MXRequestManager : public QNetworkAccessManager
 	public:	typedef	QList<MXPair>					MXPairList;
 	public:	typedef	QList<QVariant>					MXVList;
 
+	/**
+	 * @enum
+	 */
+	enum SupportedContentTypes
+	{
+		JSON = 0 // Default
+	};
+
 	private:
-		QByteArray		m_netDataRaw;
-		QNetworkReply	*m_netReply;
-		QNetworkRequest	*m_netRequest;
-		QString			m_netAuthUser;
-		QString			m_netAuthPass;
-		QUrl			m_netBaseApiUrl;
-		QVariantMap		m_netDataMap;
+		SupportedContentTypes	m_responseType;
+		QByteArray				m_netDataRaw;
+		QNetworkReply			*m_netReply;
+		QNetworkRequest			*m_netRequest;
+		QString					m_netAuthUser;
+		QString					m_netAuthPass;
+		QUrl					m_netBaseApiUrl;
+		QVariantMap				m_netDataMap;
 
 	public:
+		// Contructors //
 		/**
 		 * Constructs the Request Manager with empty HTTP Auth credentials,
 		 * empty request and default User-Agent.
@@ -116,6 +130,7 @@ class MXRequestManager : public QNetworkAccessManager
 		~MXRequestManager();
 		// --- //
 
+		// Copy constructor //
 		/**
 		 * Assigns a constructed Request Manager from another one
 		 * (will copy the pointers).
@@ -123,6 +138,26 @@ class MXRequestManager : public QNetworkAccessManager
 		 * @param[in]	other	An other MXRequestManager instance
 		 */
 		MXRequestManager&	operator=(MXRequestManager const& other);
+		// --- //
+
+		// Static methods
+		/**
+		 * Check the network accessibility. Usefull to check if the APIs
+		 * are accessible. From QUrl (With HTTP).
+		 *
+		 * @param[in]   QUrl	URL of the API (http[s]?://URL/)
+		 * @return		Bool	State of the accessibility
+		 */
+		// static bool			isAccessible(QUrl const& apiUrl);
+
+		/**
+		 * Check the network accessibility. Usefull to check if the APIs
+		 * are accessible. From String (Hostname).
+		 *
+		 * @param[in]   QUrl	URL of the API (api.example.com)
+		 * @return		Bool	State of the accessibility
+		 */
+		// static bool			isAccessible(QString const& apiHost);
 		// --- //
 
 		/**
@@ -204,6 +239,13 @@ class MXRequestManager : public QNetworkAccessManager
 		 * @return		void
 		 */
 		void			setUserAgent(QString const& userAgent = QString());
+
+		/**
+		 * Set the accepted content type.
+		 * It means if the Content-Type of the replies isn't the same,
+		 * the manager will consider a server-side script error.
+		 */
+		void			setResponseType(SupportedContentTypes const& responseType);
 		// --- //
 
 		/**
@@ -228,7 +270,7 @@ class MXRequestManager : public QNetworkAccessManager
 		 *							Will be appended to resource as query.
 		 * @return		bool		Returns the status of request. FALSE == no signal.
 		 */
-		bool	request(QString resource, QString method, MXPairList const& data);
+		bool	request(QString resource, QString method, MXPairList const& data = MXPairList());
 
 		/**
 		 * Process the request, with given resource, method and data.
@@ -260,6 +302,14 @@ class MXRequestManager : public QNetworkAccessManager
 		 */
 		bool	request(QString resource, QString method, QHttpMultiPart *data);
 
+		/**
+		 * Parse the response depending on the responseType set.
+		 *
+		 * @param[in]	reponse	QByteArray of the response body.
+		 * @return		bool	Status of the parsing.
+		 */
+		bool	parseResponse(const QString &contentType, const QByteArray &response);
+
 	signals:
 		/**
 		 * Emitted when a request begins
@@ -268,8 +318,9 @@ class MXRequestManager : public QNetworkAccessManager
 
 		/**
 		 * Emitted when a request is finished
+		 * finishedWithNoError tell if there was a network error
 		 */
-		void	finished(void);
+		void	finished(bool finishedWithNoError);
 
 		/**
 		 * Emitted when there is an error while treating the reply
@@ -313,7 +364,8 @@ class MXRequestManager : public QNetworkAccessManager
 		 * Called when an HTTP Auth Basic is required.
 		 * Will fill the QAuthenticator object with internal authUser and authPass.
 		 */
-		void	requestAuth(QNetworkReply *reply, QAuthenticator *auth);
+		void	requestAuth(QNetworkReply *reply,
+							QAuthenticator *auth);
 };
 
 #endif // MXREQUESTMANAGER_HPP

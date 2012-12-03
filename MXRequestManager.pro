@@ -6,6 +6,8 @@
 
 QT			-= gui network
 
+VERSION		= 0.2.55
+
 TARGET		= mxrequestmanager
 TEMPLATE	= lib
 CONFIG		+= staticlib

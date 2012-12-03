@@ -22,18 +22,21 @@
 
 MXRequestManager::MXRequestManager(QObject *parent) : QNetworkAccessManager(parent)
 {
+	this->m_responseType = JSON;
 	this->m_netReply = NULL;
 	this->m_netRequest = new QNetworkRequest;
 	this->setUserAgent();
 
 	connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
-	connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
+	connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
+			SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
 }
 
 MXRequestManager::MXRequestManager(QUrl apiUrl, QString authUser,
 								   QString authPass, QObject *parent)
 	: QNetworkAccessManager(parent)
 {
+	this->m_responseType = JSON;
 	this->m_netReply = NULL;
 	this->m_netBaseApiUrl = apiUrl;
 	if (!authUser.isEmpty() || !authPass.isEmpty())
@@ -51,6 +54,7 @@ MXRequestManager::MXRequestManager(QUrl apiUrl, QString authUser,
 MXRequestManager::MXRequestManager(MXRequestManager const& other)
 	: QNetworkAccessManager(other.parent())
 {
+	this->m_responseType = other.m_responseType;
 	this->m_netDataRaw = other.m_netDataRaw;
 	this->m_netReply = other.m_netReply;
 	this->m_netRequest = new QNetworkRequest(*(other.m_netRequest));
@@ -84,6 +88,28 @@ MXRequestManager&	MXRequestManager::operator=(MXRequestManager const& other)
 
 	return (*this);
 }
+// ---
+
+// Statics
+//bool	MXRequestManager::isAccessible(QUrl const& apiUrl)
+//{
+//    return (MXRequestManager::isAccessible(apiUrl.host()));
+//}
+
+//bool	MXRequestManager::isAccessible(QString const& apiHost)
+//{
+//    if (apiHost.isEmpty())
+//        return (false);
+
+//    QHostInfo	hostInfo = QHostInfo::fromName(apiHost);
+//    qDebug() << "HostInfo: Received - " << apiHost;
+//    qDebug() << "HostInfo: Error " << hostInfo.errorString();
+//    qDebug() << "HostInfo: Addresses.isEmpty() : " << hostInfo.addresses().isEmpty();
+
+//    if (hostInfo.error() != QHostInfo::NoError || hostInfo.addresses().isEmpty())
+//        return (false);
+//    return (true);
+//}
 // ---
 
 // Getters / Setters
@@ -145,6 +171,12 @@ void	MXRequestManager::setUserAgent(const QString& userAgent)
 		ua.append(userAgent);
 	this->m_netRequest->setRawHeader("User-Agent", ua);
 }
+
+void	MXRequestManager::setResponseType(SupportedContentTypes const& responseType)
+{
+	this->m_responseType = responseType;
+}
+
 // ---
 
 // Treatments
@@ -156,13 +188,13 @@ bool	MXRequestManager::request(QString resource, QString method, MXMap const& da
 	while (i.hasNext())
 	{
 		i.next();
-		params.append(MXPair(i.key(), i.value()));
+		params.append(MXPair(i.key(), QUrl::toPercentEncoding(i.value())));
 	}
 
 	return (this->request(resource, method, params));
 }
 
-bool	MXRequestManager::request(QString resource, QString method, MXPairList const& data = MXPairList())
+bool	MXRequestManager::request(QString resource, QString method, MXPairList const& data)
 {
 	QUrl apiUrl(this->m_netBaseApiUrl);
 	apiUrl.setPath(resource);
@@ -298,20 +330,47 @@ bool	MXRequestManager::request(QString resource, QString method, QHttpMultiPart 
 			SLOT(requestUploadProgress(qint64,qint64)));
 	return (TRUE);
 }
+
+bool	MXRequestManager::parseResponse(QString const& contentType,
+										QByteArray const& response)
+{
+	bool parseOk;
+
+	if (this->m_responseType == JSON)
+	{
+		if (contentType.left(16).compare("application/json",
+										 Qt::CaseInsensitive) == 0) // JSON
+		{
+			this->m_netDataMap = QtJson::Json::parse(response, parseOk).toMap();
+			if (parseOk)
+				return (true);
+		}
+	}
+
+	qDebug() << "Error while parsing...";
+	QMessageBox::critical(0, tr("Parsing Error"), tr("Server error:")+"\n"+response);
+	emit this->parsingError();
+	return (false);
+}
+
 // ---
 
 // Signals / Slots
 void	MXRequestManager::requestError(QNetworkReply::NetworkError code)
 {
 	if (code != QNetworkReply::NoError)
-		qDebug() << "Error " << code << ": " << this->m_netReply->errorString();
+		qDebug() << "Network Error " << code << ": " << this->m_netReply->errorString();
 	else
 		qDebug() << "Error Emitted: No Error...";
+
+	QMessageBox::critical(0, tr("Network Error"),
+						  tr("There seems to be a network error:\n")
+						  +this->m_netReply->errorString());
 }
 
 void	MXRequestManager::requestFinished(QNetworkReply *reply)
 {
-	bool ok;
+	bool requestOk = true;
 
 	qDebug() << "##### Request Finished #####";
 	qDebug() << "----- Request Data -----";
@@ -319,28 +378,30 @@ void	MXRequestManager::requestFinished(QNetworkReply *reply)
 	qDebug() << "Raw Query list: " << this->m_netRequest->url().queryItems();
 	qDebug() << "Encoded Query: " << this->m_netRequest->url().encodedQuery();
 	qDebug() << "Ressource: " << this->m_netRequest->url().path();
-	qDebug() << "Method: " << this->m_netRequest->attribute(QNetworkRequest::CustomVerbAttribute,
-															QVariant("Unknown")).toString();
+	qDebug() << "Method: " <<
+				this->m_netRequest->attribute(QNetworkRequest::CustomVerbAttribute,
+							QVariant("Unknown")).toString();
 	qDebug() << "----- /Request Data -----";
 	qDebug() << "- HTTP Error code: " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 	qDebug() << "- Qt Network Error: " << reply->error() << " - " << reply->errorString();
+	if (reply->error() != QNetworkReply::NoError && reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 0)
+		requestOk = false;
 
 	this->m_netDataRaw = reply->readAll();
 	qDebug() << "--- Reply ---";
-	qDebug() << this->m_netDataRaw;
+	qDebug() << "- Headers: " << reply->rawHeaderPairs();
+	qDebug() << "- Body: " << this->m_netDataRaw;
 	qDebug() << "--- /Reply ---";
 
-	this->m_netDataMap = QtJson::Json::parse(this->m_netDataRaw, ok).toMap();
-	if (!ok)
-		qDebug() << "Error while parsing...";
-	else if (this->m_netDataMap.contains("errors"))
-		qDebug() << "Error on request: "
-				 << this->m_netDataMap.value("errors").toList().at(0).toMap().value("message").toString();
-
 	qDebug() << "##### /Request Finished #####";
-	if (!ok)
-		emit this->parsingError();
-	emit this->finished();
+
+	if (!requestOk)
+		emit this->requestError(reply->error());
+	else
+		emit this->finished(requestOk &&
+										this->parseResponse(reply->
+										header(QNetworkRequest::ContentTypeHeader)
+										.toString(), this->m_netDataRaw));
 }
 
 void	MXRequestManager::requestDownloadProgress(qint64 bytesReceived,
