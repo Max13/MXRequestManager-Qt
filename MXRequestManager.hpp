@@ -41,7 +41,7 @@
 # if		QT_VERSION < 0x050000
 #	warning	"This version of Qt (Qt < 5.0) doesn't have a built in JSON parser."
 #	warning "This library is using QtJson as JSON parser."
-#	include	<qtjson/json.h>
+#	include	"json.h"
 # endif
 
 # define	MXREQUESTMANAGER_NAME		"MXRequestManager"
