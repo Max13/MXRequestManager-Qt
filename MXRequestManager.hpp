@@ -38,14 +38,14 @@
 # include	<QUrl>
 # include	<QVariantMap>
 
-# if		QT_VERSION < 0x050000
-#	warning	"This version of Qt (Qt < 5.0) doesn't have a built in JSON parser."
-#	warning "This library is using QtJson as JSON parser."
-#	include	"json.h"
+# include	"json.h"
+# if		QT_VERSION >= 0x050000
+#	warning	"This version of Qt (Qt >= 5.0) has a built in JSON parser."
+#	warning "Think about using it."
 # endif
 
 # define	MXREQUESTMANAGER_NAME		"MXRequestManager"
-# define	MXREQUESTMANAGER_VERSION	"0.1"
+# define	MXREQUESTMANAGER_VERSION	"0.3"
 
 # if		defined(__MACH__)
 #	define	MXREQUESTMANAGER_PLATEFORM	"MacOS"
@@ -67,24 +67,29 @@ class MXRequestManager : public QNetworkAccessManager
 {
 	Q_OBJECT
 
-	/**
-	 * @typedef
-	 */
-	public:	typedef	QMap<QString, QString>			MXMap;
-	public:	typedef	QMapIterator<QString, QString>	MXMapIterator;
-	public:	typedef	QMap<QString, QVariant>			MXVMap;
-	public:	typedef	QMapIterator<QString, QVariant>	MXVMapIterator;
-	public:	typedef	QPair<QString, QString>			MXPair;
-	public:	typedef	QList<MXPair>					MXPairList;
-	public:	typedef	QList<QVariant>					MXVList;
+	public:
+		/**
+		* @typedef
+		*/
+		typedef	QMap<QString, QString>					MXMap;
+		typedef	QMap<QByteArray, QByteArray>			MXEncodedMap;
 
-	/**
-	 * @enum
-	 */
-	enum SupportedContentTypes
-	{
-		JSON = 0 // Default
-	};
+		typedef	QMapIterator<QString, QString>			MXMapIterator;
+		typedef	QMapIterator<QByteArray, QByteArray>	MXEncodedMapIterator;
+
+		typedef	QPair<QString, QString>					MXPair;
+		typedef	QPair<QByteArray, QByteArray>			MXEncodedPair;
+
+		typedef	QList<MXPair>							MXPairList;
+		typedef	QList<MXEncodedPair>					MXEncodedPairList;
+
+		/**
+		* @enum
+		*/
+		enum SupportedContentTypes
+		{
+			JSON = 0 // Default
+		};
 
 	private:
 		SupportedContentTypes	m_responseType;
@@ -248,21 +253,48 @@ class MXRequestManager : public QNetworkAccessManager
 		void			setResponseType(SupportedContentTypes const& responseType);
 		// --- //
 
+		// Requests with MX TypeDefs
 		/**
-		 * Prepare a QList<QPair<QString, QString> > as MXPairList from given MXMap
-		 * Then calls the overloaded this->request taking an MXPairList
+		 * Default request.
+		 * Prepares and processes a well formed/encoded request from given MXMap
+		 * Then calls the overloaded this->request taking an MXEncodedPairList
 		 *
 		 * @param[in]	resource	Name of resource, will be appended to the API URL.
 		 * @param[in]	method		Name of the HTTP method. Default is GET.
-		 * @param[in]	data		Unencoded QMap<QString, QString> as MXMapList
-		 *							Will be appended to resource as query.
+		 * @param[in]	data		Unencoded parameters as MXMap
 		 * @return		bool		Returns the status of request. FALSE == no signal.
 		 */
-		bool	request(QString resource, QString method, MXMap const& data);
+		bool	request(QString const& resource, QString const& method,
+						MXMap const& data = MXMap());
 
 		/**
-		 * Process the request, with given resource, method and data in query.
-		 * Will set arbitrary Content-Length header to 0.
+		 * @overload
+		 * Prepares and processes a well formed/encoded request from given MXEncodedMap
+		 *
+		 * @param[in]	resource	Name of resource, will be appended to the API URL.
+		 * @param[in]	method		Name of the HTTP method. Default is GET.
+		 * @param[in]	data		Already encoded parameters as MXEncodedMap
+		 * @return		bool		Returns the status of request. FALSE == no signal.
+		 */
+		bool	request(QString const& resource, QString const& method,
+						MXEncodedMap const& data);
+
+		/**
+		 * @overload
+		 * Prepares and processes a well formed/encoded request from given MXPairList
+		 *
+		 * @param[in]	resource	Name of resource, will be appended to the API URL.
+		 * @param[in]	method		Name of the HTTP method. Default is GET.
+		 * @param[in]	data		Already encoded parameters as MXEncodedPairList
+		 * @return		bool		Returns the status of request. FALSE == no signal.
+		 */
+		bool	request(QString const& resource, QString const& method,
+						MXPairList const& data);
+
+		/**
+		 * @overload
+		 * Prepares and processes a well formed/encoded request from given MXEncodedPairList
+		 * Will set arbitrary Content-Length header to 0 for PUT.
 		 *
 		 * @param[in]	resource	Name of resource, will be appended to the API URL.
 		 * @param[in]	method		Name of the HTTP method. Default is GET.
@@ -270,8 +302,11 @@ class MXRequestManager : public QNetworkAccessManager
 		 *							Will be appended to resource as query.
 		 * @return		bool		Returns the status of request. FALSE == no signal.
 		 */
-		bool	request(QString resource, QString method, MXPairList const& data = MXPairList());
+		bool	request(QString const& resource, QString const& method,
+						MXEncodedPairList const& data);
+		// ---
 
+		// Requests with QNetworkRequest overloads
 		/**
 		 * Process the request, with given resource, method and data.
 		 *
@@ -280,7 +315,7 @@ class MXRequestManager : public QNetworkAccessManager
 		 * @param[in]	data		Pointer to the data to send. Default is empty.
 		 * @return		bool		Returns the status of request. FALSE == no signal.
 		 */
-		bool	request(QString resource, QString method, QIODevice *data);
+		bool	request(QString const& resource, QString const& method, QIODevice *data);
 
 		/**
 		 * Process the request, with given resource, method and data.
@@ -290,7 +325,8 @@ class MXRequestManager : public QNetworkAccessManager
 		 * @param[in]	data		Reference to the data to send.
 		 * @return		bool		Returns the status of request. FALSE == no signal.
 		 */
-		bool	request(QString resource, QString method, QByteArray const& data);
+		bool	request(QString const& resource, QString const& method,
+						QByteArray const& data);
 
 		/**
 		 * Process the request, with given resource, method and data.
@@ -300,7 +336,8 @@ class MXRequestManager : public QNetworkAccessManager
 		 * @param[in]	data		Reference to the data to send.
 		 * @return		bool		Returns the status of request. FALSE == no signal.
 		 */
-		bool	request(QString resource, QString method, QHttpMultiPart *data);
+		bool	request(QString const& resource, QString const& method,
+						QHttpMultiPart *data);
 
 		/**
 		 * Parse the response depending on the responseType set.
@@ -308,7 +345,8 @@ class MXRequestManager : public QNetworkAccessManager
 		 * @param[in]	reponse	QByteArray of the response body.
 		 * @return		bool	Status of the parsing.
 		 */
-		bool	parseResponse(const QString &contentType, const QByteArray &response);
+		bool	parseResponse(QString const& contentType, QByteArray const& response);
+		// ---
 
 	signals:
 		/**
@@ -364,8 +402,14 @@ class MXRequestManager : public QNetworkAccessManager
 		 * Called when an HTTP Auth Basic is required.
 		 * Will fill the QAuthenticator object with internal authUser and authPass.
 		 */
-		void	requestAuth(QNetworkReply *reply,
-							QAuthenticator *auth);
+		void	requestAuth(QNetworkReply *reply, QAuthenticator *auth);
 };
+
+/**
+ * @overload QByteArray QUrl::encodedQuery()
+ * This static QUrl function takes an MXEncodedPairList
+ * And returns the query part as QByteArray.
+ */
+//QByteArray QUrl::encodedQuery(MXRequestManager::MXEncodedPairList const& params) const;
 
 #endif // MXREQUESTMANAGER_HPP

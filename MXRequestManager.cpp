@@ -143,22 +143,22 @@ QVariantMap	const&	MXRequestManager::data(void) const
 	return (this->m_netDataMap);
 }
 
-void	MXRequestManager::setAuthUser(const QString& authUser)
+void	MXRequestManager::setAuthUser(QString const& authUser)
 {
 	this->m_netAuthUser = authUser;
 }
 
-void	MXRequestManager::setAuthPass(const QString& authPass)
+void	MXRequestManager::setAuthPass(QString const& authPass)
 {
 	this->m_netAuthPass = authPass;
 }
 
-void	MXRequestManager::setApiUrl(const QUrl& apiUrl)
+void	MXRequestManager::setApiUrl(QUrl const& apiUrl)
 {
 	this->m_netBaseApiUrl = apiUrl;
 }
 
-void	MXRequestManager::setUserAgent(const QString& userAgent)
+void	MXRequestManager::setUserAgent(QString const& userAgent)
 {
 	QByteArray	ua;
 
@@ -180,26 +180,58 @@ void	MXRequestManager::setResponseType(SupportedContentTypes const& responseType
 // ---
 
 // Treatments
-bool	MXRequestManager::request(QString resource, QString method, MXMap const& data)
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+								  MXMap const& data)
 {
-	MXMapIterator	i(data);
-	MXPairList		params;
+	MXMapIterator		i(data);
+	MXEncodedPairList	params;
 
 	while (i.hasNext())
 	{
 		i.next();
-		params.append(MXPair(i.key(), QUrl::toPercentEncoding(i.value())));
+		params.append(MXEncodedPair(QUrl::toPercentEncoding(i.key()),
+							 QUrl::toPercentEncoding(i.value())));
 	}
 
 	return (this->request(resource, method, params));
 }
 
-bool	MXRequestManager::request(QString resource, QString method, MXPairList const& data)
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+								  MXEncodedMap const& data)
+{
+	MXEncodedMapIterator	i(data);
+	MXEncodedPairList		params;
+
+	while (i.hasNext())
+	{
+		i.next();
+		params.append(MXEncodedPair(i.key(), i.value()));
+	}
+
+	return (this->request(resource, method, params));
+}
+
+
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+								  MXPairList const& data)
+{
+	int					i = -1;
+	MXEncodedPairList	params;
+
+	while (++i < data.size())
+		params.append(MXEncodedPair(QUrl::toPercentEncoding(data.at(i).first),
+									QUrl::toPercentEncoding(data.at(i).second)));
+
+	return (this->request(resource, method, params));
+}
+
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+								  MXEncodedPairList const& data)
 {
 	QUrl apiUrl(this->m_netBaseApiUrl);
 	apiUrl.setPath(resource);
-	if (method.toUpper() != "POST")
-		apiUrl.setQueryItems(data);
+	if (method != "POST")
+		apiUrl.setEncodedQueryItems(data);
 	this->m_netRequest->setUrl(apiUrl);
 
 	emit this->begin();
@@ -212,12 +244,12 @@ bool	MXRequestManager::request(QString resource, QString method, MXPairList cons
 		this->m_netReply = this->head(*(this->m_netRequest));
 	else if (method.toUpper() == "POST")
 	{
-		QUrl params;
-		params.setQueryItems(data);
+		QUrl tmpApiUrl;
+		tmpApiUrl.setEncodedQueryItems(data);
 
 		this->m_netRequest->setHeader(QNetworkRequest::ContentTypeHeader,
 									  "application/octet-stream");
-		this->m_netReply = this->post(*(this->m_netRequest), params.encodedQuery());
+		this->m_netReply = this->post(*(this->m_netRequest), tmpApiUrl.encodedQuery());
 	}
 	else if (method.toUpper() == "PUT")
 	{
@@ -234,7 +266,8 @@ bool	MXRequestManager::request(QString resource, QString method, MXPairList cons
 	return (TRUE);
 }
 
-bool	MXRequestManager::request(QString resource, QString method, QIODevice *data)
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+								  QIODevice *data)
 {
 	if (resource.isEmpty() || method.isEmpty())
 		return (FALSE);
@@ -266,7 +299,8 @@ bool	MXRequestManager::request(QString resource, QString method, QIODevice *data
 	return (TRUE);
 }
 
-bool	MXRequestManager::request(QString resource, QString method, QByteArray const& data)
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+								  QByteArray const& data)
 {
 	if (resource.isEmpty() || method.isEmpty())
 		return (FALSE);
@@ -299,7 +333,8 @@ bool	MXRequestManager::request(QString resource, QString method, QByteArray cons
 }
 
 
-bool	MXRequestManager::request(QString resource, QString method, QHttpMultiPart *data)
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+								  QHttpMultiPart *data)
 {
 	if (resource.isEmpty() || method.isEmpty())
 		return (FALSE);
@@ -352,7 +387,6 @@ bool	MXRequestManager::parseResponse(QString const& contentType,
 	emit this->parsingError();
 	return (false);
 }
-
 // ---
 
 // Signals / Slots
@@ -426,4 +460,14 @@ void	MXRequestManager::requestAuth(QNetworkReply __attribute__((unused))*reply,
 	auth->setUser(this->m_netAuthUser);
 	auth->setPassword(this->m_netAuthPass);
 }
+// ---
+
+// External Overloads
+//QByteArray QUrl::encodedQuery(MXRequestManager::MXEncodedPairList const& params) const
+//{
+//	QUrl tmp;
+
+//	tmp.setEncodedQueryItems(params);
+//	return (tmp.encodedQuery());
+//}
 // ---
