@@ -4,11 +4,11 @@
 #
 #-------------------------------------------------
 
-QT			-= gui network
+QT			= core network
 
-VERSION		= 0.3.114
+VERSION		= 0.5.114
 
-TARGET		= mxrequestmanager
+TARGET		= MXRequestManager
 TEMPLATE	= lib
 CONFIG		+= staticlib
 

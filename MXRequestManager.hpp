@@ -3,7 +3,7 @@
  *
  * @details		REST Request Manager by Max13
  *
- * @version		0.1
+ * @version		0.5
  * @author		Adnan "Max13" RIHAN <adnan@rihan.fr>
  * @link		http://rihan.fr/
  * @copyright	http://creativecommons.org/licenses/by-sa/3.0/	CC-by-sa 3.0
@@ -24,35 +24,34 @@
 # include	<QDebug>
 # include	<QIODevice>
 # include	<QList>
-# include	<QtGui/QMessageBox>
 # include	<QPair>
 # include	<QString>
 // QtNetwork
-# include	<QtNetwork/QAuthenticator>
-# include   <QtNetwork/QHostInfo>
-# include	<QtNetwork/QHttpMultiPart>
-# include	<QtNetwork/QNetworkAccessManager>
-# include	<QtNetwork/QNetworkReply>
-# include	<QtNetwork/QNetworkRequest>
+# include	<QAuthenticator>
+# include	<QHostInfo>
+# include	<QHttpMultiPart>
+# include	<QNetworkAccessManager>
+# include	<QNetworkReply>
+# include	<QNetworkRequest>
 // ---
 # include	<QUrl>
 # include	<QVariantMap>
 
 # include	"json.h"
-# if		QT_VERSION >= 0x050000
-#	warning	"This version of Qt (Qt >= 5.0) has a built in JSON parser."
-#	warning "Think about using it."
-# endif
 
 # define	MXREQUESTMANAGER_NAME		"MXRequestManager"
-# define	MXREQUESTMANAGER_VERSION	"0.3"
+# define	MXREQUESTMANAGER_VERSION	"0.5"
 
-# if		defined(__MACH__)
+# if		defined(Q_OS_MAC) || defined(Q_OS_MAC64)
 #	define	MXREQUESTMANAGER_PLATEFORM	"MacOS"
-# elif		defined(WIN32)
-#	define	MXREQUESTMANAGER_PLATEFORM	"Win32"
-# elif		defined(UNIX)
+# elif		defined(Q_OS_UNIX)
 #	define	MXREQUESTMANAGER_PLATEFORM	"Unix"
+# elif		defined(Q_OS_LINUX)
+#	define	MXREQUESTMANAGER_PLATEFORM	"Linux"
+# elif		defined(Q_OS_WIN32)
+#	define	MXREQUESTMANAGER_PLATEFORM	"Win32"
+# elif		defined(Q_OS_WIN64)
+#	define	MXREQUESTMANAGER_PLATEFORM	"Win64"
 # else
 #	define	MXREQUESTMANAGER_PLATEFORM	"Unknown"
 # endif
@@ -88,10 +87,23 @@ class MXRequestManager : public QNetworkAccessManager
 		*/
 		enum SupportedContentTypes
 		{
-			JSON = 0 // Default
+			RAW,	// Default
+			JSON
+		};
+
+		/**
+		 * @enum
+		 */
+		enum RequestError
+		{
+			NoError,		// Default
+			NetworkError,
+			ParsingError
 		};
 
 	private:
+		bool					m_valid;
+		static MXRequestManager	*m_self;
 		SupportedContentTypes	m_responseType;
 		QByteArray				m_netDataRaw;
 		QNetworkReply			*m_netReply;
@@ -99,7 +111,7 @@ class MXRequestManager : public QNetworkAccessManager
 		QString					m_netAuthUser;
 		QString					m_netAuthPass;
 		QUrl					m_netBaseApiUrl;
-		QVariantMap				m_netDataMap;
+		QVariant				m_netDataVariant;
 
 	public:
 		// Contructors //
@@ -166,6 +178,20 @@ class MXRequestManager : public QNetworkAccessManager
 		// --- //
 
 		/**
+		 * Singleton mode
+		 *
+		 * @return		*MXRequestManager
+		 */
+		static MXRequestManager	*getInstance(void);
+
+		/**
+		 * Singleton mode overload
+		 *
+		 * @return		*MXRequestManager
+		 */
+		static MXRequestManager	*inst(void);
+
+		/**
 		 * Get internal HTTP Auth User
 		 *
 		 * @param[in]	void
@@ -209,9 +235,17 @@ class MXRequestManager : public QNetworkAccessManager
 		 * Get internal parsed received data
 		 *
 		 * @param	void
-		 * @return	QVariantMap	Constant reference to a parsed version of received data
+		 * @return	QVariant	Constant reference to a parsed version of received data
 		 */
-		QVariantMap	const&	data(void) const;
+		QVariant	const&	data(void) const;
+
+		/**
+		 * Get internet reply reference
+		 *
+		 * @param	void
+		 * @return	QNetworkReply	Contant reference to internal QNetworkReply
+		 */
+		QNetworkReply	const&	netReply(void) const;
 
 		/**
 		 * Set internal HTTP Auth User
@@ -251,6 +285,11 @@ class MXRequestManager : public QNetworkAccessManager
 		 * the manager will consider a server-side script error.
 		 */
 		void			setResponseType(SupportedContentTypes const& responseType);
+
+		/**
+		 * Indicates that the request is finished and valid
+		 */
+		bool			isValid(void);
 		// --- //
 
 		// Requests with MX TypeDefs
@@ -345,7 +384,7 @@ class MXRequestManager : public QNetworkAccessManager
 		 * @param[in]	reponse	QByteArray of the response body.
 		 * @return		bool	Status of the parsing.
 		 */
-		bool	parseResponse(QString const& contentType, QByteArray const& response);
+		bool	parseResponse(void);
 		// ---
 
 	signals:
@@ -355,15 +394,35 @@ class MXRequestManager : public QNetworkAccessManager
 		void	begin(void);
 
 		/**
-		 * Emitted when a request is finished
-		 * finishedWithNoError tell if there was a network error
+		 * Emitted when there is a network error
 		 */
-		void	finished(bool finishedWithNoError);
+		void	networkError(void);
 
 		/**
 		 * Emitted when there is an error while treating the reply
 		 */
 		void	parsingError(void);
+
+		/**
+		 * Emitted when there is an error during the request or the treatment
+		 */
+		void	requestError(void);
+
+		/**
+		 * Emitted when the request is finished with any error
+		 * Contains the HTTP error code and the QNetworkReply error code.
+		 */
+		void	finishedWithError(int, QNetworkReply::NetworkError);
+
+		/**
+		 * Emitted when the request is finished successfully
+		 */
+		void	finishedSuccessfully(void);
+
+		/**
+		 * Emitted when a request is finished
+		 */
+		void	requestDone(void);
 
 		/**
 		 * Emitted when downloadProgess signal from the QNetworkReply
@@ -379,14 +438,14 @@ class MXRequestManager : public QNetworkAccessManager
 		/**
 		 * Called when there is an error with the request
 		 */
-		void	requestError(QNetworkReply::NetworkError code);
+		void	requestNetworkError(void);
 
 		/**
 		 * Called when a request is finished.
 		 * Copies the received data to the internal QByteArray then emits
 		 * finished();
 		 */
-		void	requestFinished(QNetworkReply *reply);
+		void	requestFinished(void);
 
 		/**
 		 * Called when downloadProgess signal from the QNetworkReply
@@ -404,12 +463,5 @@ class MXRequestManager : public QNetworkAccessManager
 		 */
 		void	requestAuth(QNetworkReply *reply, QAuthenticator *auth);
 };
-
-/**
- * @overload QByteArray QUrl::encodedQuery()
- * This static QUrl function takes an MXEncodedPairList
- * And returns the query part as QByteArray.
- */
-//QByteArray QUrl::encodedQuery(MXRequestManager::MXEncodedPairList const& params) const;
 
 #endif // MXREQUESTMANAGER_HPP
