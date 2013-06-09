@@ -4,7 +4,7 @@
  *
  * @details		REST Request Manager by Max13
  *
- * @version		0.5
+ * @version		1.0
  * @author		Adnan "Max13" RIHAN <adnan@rihan.fr>
  * @link		http://rihan.fr/
  * @copyright	http://creativecommons.org/licenses/by-sa/3.0/	CC-by-sa 3.0
@@ -20,27 +20,23 @@
 
 #include "MXRequestManager.hpp"
 
-MXRequestManager	*MXRequestManager::m_self = NULL;
-
-MXRequestManager::MXRequestManager(QObject *parent) : QNetworkAccessManager(parent)
+MXRequestManager::MXRequestManager(QObject *parent) : QNetworkAccessManager(parent), m_lastHttpCode(0)
 {
-    this->m_valid = false;
-    this->m_responseType = RAW;
+    this->m_responseType = JSON;
     this->m_netReply = NULL;
     this->m_netRequest = new QNetworkRequest;
     this->setUserAgent();
 
-    connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished()));
+    connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
     connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
             SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
 }
 
 MXRequestManager::MXRequestManager(QUrl apiUrl, QString authUser,
                                    QString authPass, QObject *parent)
-    : QNetworkAccessManager(parent)
+    : QNetworkAccessManager(parent), m_lastHttpCode(0)
 {
-    this->m_valid = false;
-    this->m_responseType = RAW;
+    this->m_responseType = JSON;
     this->m_netReply = NULL;
     this->m_netBaseApiUrl = apiUrl;
     if (!authUser.isEmpty() || !authPass.isEmpty())
@@ -51,15 +47,13 @@ MXRequestManager::MXRequestManager(QUrl apiUrl, QString authUser,
     this->m_netRequest = new QNetworkRequest;
     this->setUserAgent();
 
-    connect(this, SIGNAL(requestDone()), SLOT(requestFinished()));
-    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
-            SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
+    connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
+    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
 }
 
 MXRequestManager::MXRequestManager(MXRequestManager const& other)
-    : QNetworkAccessManager(other.parent())
+    : QNetworkAccessManager(other.parent()), m_lastHttpCode(0)
 {
-    this->m_valid = other.m_valid;
     this->m_responseType = other.m_responseType;
     this->m_netDataRaw = other.m_netDataRaw;
     this->m_netReply = other.m_netReply;
@@ -68,9 +62,8 @@ MXRequestManager::MXRequestManager(MXRequestManager const& other)
     this->m_netAuthPass = other.m_netAuthPass;
     this->m_netBaseApiUrl = other.m_netBaseApiUrl;
 
-    connect(this, SIGNAL(requestDone()), SLOT(requestFinished()));
-    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
-            SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
+    connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
+    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
 }
 
 MXRequestManager::~MXRequestManager()
@@ -86,7 +79,6 @@ MXRequestManager::~MXRequestManager()
 MXRequestManager&	MXRequestManager::operator=(MXRequestManager const& other)
 {
     this->setParent(other.parent());
-    this->m_valid = other.m_valid;
     this->m_netDataRaw = other.m_netDataRaw;
     this->m_netReply = other.m_netReply;
     this->m_netRequest = other.m_netRequest;
@@ -98,44 +90,7 @@ MXRequestManager&	MXRequestManager::operator=(MXRequestManager const& other)
 }
 // ---
 
-// Statics
-//bool	MXRequestManager::isAccessible(QUrl const& apiUrl)
-//{
-//    return (MXRequestManager::isAccessible(apiUrl.host()));
-//}
-
-//bool	MXRequestManager::isAccessible(QString const& apiHost)
-//{
-//    if (apiHost.isEmpty())
-//        return (false);
-
-//    QHostInfo	hostInfo = QHostInfo::fromName(apiHost);
-//    qDebug() << "HostInfo: Received - " << apiHost;
-//    qDebug() << "HostInfo: Error " << hostInfo.errorString();
-//    qDebug() << "HostInfo: Addresses.isEmpty() : " << hostInfo.addresses().isEmpty();
-
-//    if (hostInfo.error() != QHostInfo::NoError || hostInfo.addresses().isEmpty())
-//        return (false);
-//    return (true);
-//}
-// ---
-
 // Getters / Setters
-MXRequestManager	*MXRequestManager::getInstance(void)
-{
-    if (!MXRequestManager::m_self)
-    {
-        MXRequestManager::m_self = new MXRequestManager;
-    }
-
-    return (MXRequestManager::m_self);
-}
-
-MXRequestManager	*MXRequestManager::inst(void)
-{
-    return (MXRequestManager::getInstance());
-}
-
 QString	MXRequestManager::authUser(void) const
 {
     return (this->m_netAuthUser);
@@ -156,19 +111,29 @@ QString	MXRequestManager::userAgent(void) const
     return (this->m_netRequest->rawHeader("User-Agent"));
 }
 
-QByteArray	const&		MXRequestManager::rawData(void) const
+int     MXRequestManager::lastHttpCode(void) const
+{
+    return (this->m_lastHttpCode);
+}
+
+QNetworkRequest const&  MXRequestManager::networkRequest(void)
+{
+    return (*(this->m_netRequest));
+}
+
+QNetworkReply const&  MXRequestManager::networkReply(void)
+{
+    return (*(this->m_netReply));
+}
+
+QByteArray	const&	MXRequestManager::rawData(void) const
 {
     return (this->m_netDataRaw);
 }
 
-QVariant const&			MXRequestManager::data(void) const
+QVariantMap	const&	MXRequestManager::data(void) const
 {
-    return (this->m_netDataVariant);
-}
-
-QNetworkReply const&	MXRequestManager::netReply(void) const
-{
-    return (*(this->m_netReply));
+    return (this->m_netDataMap);
 }
 
 void	MXRequestManager::setAuthUser(QString const& authUser)
@@ -205,25 +170,21 @@ void	MXRequestManager::setResponseType(SupportedContentTypes const& responseType
     this->m_responseType = responseType;
 }
 
-bool	MXRequestManager::isValid(void)
-{
-    return (this->m_valid);
-}
-
 // ---
 
 // Treatments
 bool	MXRequestManager::request(QString const& resource, QString const& method,
                                   MXMap const& data)
 {
-    MXMapIterator		i(data);
-    MXEncodedPairList	params;
+    MXMapIterator	i(data);
+    MXPairList		params;
 
     while (i.hasNext())
     {
         i.next();
-        params.append(MXEncodedPair(QUrl::toPercentEncoding(i.key()),
+        params.append(MXPair(QUrl::toPercentEncoding(i.key()),
                              QUrl::toPercentEncoding(i.value())));
+
     }
 
     return (this->request(resource, method, params));
@@ -233,43 +194,46 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
                                   MXEncodedMap const& data)
 {
     MXEncodedMapIterator	i(data);
-    MXEncodedPairList		params;
+    MXPairList				params;
 
     while (i.hasNext())
     {
         i.next();
-        params.append(MXEncodedPair(i.key(), i.value()));
+        params.append(MXPair(i.key(), i.value()));
     }
 
     return (this->request(resource, method, params));
 }
 
+//bool	MXRequestManager::request(QString const& resource, QString const& method,
+//								  MXPairList const& data)
+//{
+//	int					i = -1;
+//	MXEncodedPairList	params;
+
+//	while (++i < data.size())
+//		params.append(MXEncodedPair(QUrl::toPercentEncoding(data.at(i).first),
+//									QUrl::toPercentEncoding(data.at(i).second)));
+
+//	return (this->request(resource, method, params));
+//}
 
 bool	MXRequestManager::request(QString const& resource, QString const& method,
-                                  MXPairList const& data)
+                                  MXPairList const& data) // Will be called
 {
-    int					i = -1;
-    MXEncodedPairList	params;
-
-    while (++i < data.size())
-        params.append(MXEncodedPair(QUrl::toPercentEncoding(data.at(i).first),
-                                    QUrl::toPercentEncoding(data.at(i).second)));
-
-    return (this->request(resource, method, params));
-}
-
-bool	MXRequestManager::request(QString const& resource, QString const& method,
-                                  MXEncodedPairList const& data)
-{
+    QUrlQuery	urlQuery;
     QUrl apiUrl(this->m_netBaseApiUrl);
+
     apiUrl.setPath(resource);
+    urlQuery.setQueryItems(data);
     if (method != "POST")
-        apiUrl.setEncodedQueryItems(data);
+        apiUrl.setQuery(urlQuery);
     this->m_netRequest->setUrl(apiUrl);
 
-    this->m_valid = false;
     emit this->begin();
 
+//    if (this->m_responseType == JSON)
+//        this->m_netRequest->setRawHeader("Accept", "application/json,application/xml;q=0.9,*/*;q=0.8");
     if (method.toUpper() == "DELETE")
         this->m_netReply = this->deleteResource(*(this->m_netRequest));
     else if (method.toUpper() == "GET")
@@ -278,12 +242,19 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
         this->m_netReply = this->head(*(this->m_netRequest));
     else if (method.toUpper() == "POST")
     {
-        QUrl tmpApiUrl;
-        tmpApiUrl.setEncodedQueryItems(data);
+//        QUrl tmpUrl;
+//        tmpUrl.setQuery(urlQuery);
+
+//        qDebug() << "Api URL:" << apiUrl;
+//        qDebug() << "Method:" << method;
+//        qDebug() << "Url Query:" << urlQuery.toString();
+//        qDebug() << "tmpUrl:" << tmpUrl;
+//        qDebug() << "tmpUrl Query:" << tmpUrl.toEncoded();
+//        return (false);
 
         this->m_netRequest->setHeader(QNetworkRequest::ContentTypeHeader,
-                                      "application/octet-stream");
-        this->m_netReply = this->post(*(this->m_netRequest), tmpApiUrl.encodedQuery());
+                                      "application/x-www-form-urlencoded; charset=utf-8");
+        this->m_netReply = this->post(*(this->m_netRequest), urlQuery.toString().toUtf8());
     }
     else if (method.toUpper() == "PUT")
     {
@@ -291,13 +262,26 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
         this->m_netReply = this->put(*(this->m_netRequest), (QIODevice*)NULL);
     }
     else
-        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toAscii());
+        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toLatin1());
 
     connect(this->m_netReply, SIGNAL(downloadProgress(qint64,qint64)),
             SLOT(requestDownloadProgress(qint64,qint64)));
     connect(this->m_netReply, SIGNAL(uploadProgress(qint64,qint64)),
             SLOT(requestUploadProgress(qint64,qint64)));
     return (true);
+}
+
+bool	MXRequestManager::request(QString const& resource, QString const& method,
+                                  MXEncodedPairList const& data)
+{
+    int			i = -1;
+    MXPairList	params;
+
+    while (++i < data.size())
+        params.append(MXPair(QUrl::toPercentEncoding(data.at(i).first),
+                             QUrl::toPercentEncoding(data.at(i).second)));
+
+    return (this->request(resource, method, params));
 }
 
 bool	MXRequestManager::request(QString const& resource, QString const& method,
@@ -310,10 +294,11 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
     apiUrl.setPath(resource);
     this->m_netRequest->setUrl(apiUrl);
 
-    this->m_valid = false;
     emit this->begin();
 
     this->m_netRequest->setUrl(this->m_netBaseApiUrl.toString()+resource);
+//    if (this->m_responseType == JSON)
+//        this->m_netRequest->setRawHeader("Accept", "application/json,application/xml;q=0.9,*/*;q=0.8");
     if (method.toUpper() == "DELETE")
         this->m_netReply = this->deleteResource(*(this->m_netRequest));
     else if (method.toUpper() == "GET")
@@ -325,7 +310,7 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
     else if (method.toUpper() == "PUT")
         this->m_netReply = this->put(*(this->m_netRequest), data);
     else
-        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toAscii());
+        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toLatin1());
 
     connect(this->m_netReply, SIGNAL(downloadProgress(qint64,qint64)),
             SLOT(requestDownloadProgress(qint64,qint64)));
@@ -344,10 +329,11 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
     apiUrl.setPath(resource);
     this->m_netRequest->setUrl(apiUrl);
 
-    this->m_valid = false;
     emit this->begin();
 
     this->m_netRequest->setUrl(this->m_netBaseApiUrl.toString()+resource);
+//    if (this->m_responseType == JSON)
+//        this->m_netRequest->setRawHeader("Accept", "application/json,application/xml;q=0.9,*/*;q=0.8");
     if (method.toUpper() == "DELETE")
         this->m_netReply = this->deleteResource(*(this->m_netRequest));
     else if (method.toUpper() == "GET")
@@ -359,7 +345,7 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
     else if (method.toUpper() == "PUT")
         this->m_netReply = this->put(*(this->m_netRequest), data);
     else
-        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toAscii());
+        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toLatin1());
 
     connect(this->m_netReply, SIGNAL(downloadProgress(qint64,qint64)),
             SLOT(requestDownloadProgress(qint64,qint64)));
@@ -367,7 +353,6 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
             SLOT(requestUploadProgress(qint64,qint64)));
     return (true);
 }
-
 
 bool	MXRequestManager::request(QString const& resource, QString const& method,
                                   QHttpMultiPart *data)
@@ -379,10 +364,11 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
     apiUrl.setPath(resource);
     this->m_netRequest->setUrl(apiUrl);
 
-    this->m_valid = false;
     emit this->begin();
 
     this->m_netRequest->setUrl(this->m_netBaseApiUrl.toString()+resource);
+//    if (this->m_responseType == JSON)
+//        this->m_netRequest->setRawHeader("Accept", "application/json,application/xml;q=0.9,*/*;q=0.8");
     if (method.toUpper() == "DELETE")
         this->m_netReply = this->deleteResource(*(this->m_netRequest));
     else if (method.toUpper() == "GET")
@@ -394,7 +380,7 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
     else if (method.toUpper() == "PUT")
         this->m_netReply = this->put(*(this->m_netRequest), data);
     else
-        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toAscii());
+        this->m_netReply = this->sendCustomRequest(*(this->m_netRequest), method.toLatin1());
 
     connect(this->m_netReply, SIGNAL(downloadProgress(qint64,qint64)),
             SLOT(requestDownloadProgress(qint64,qint64)));
@@ -403,85 +389,83 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
     return (true);
 }
 
-bool	MXRequestManager::parseResponse(void)
+bool	MXRequestManager::parseResponse(QString const& contentType,
+                                        QByteArray const& response)
 {
-    bool parseOk;
+    QString	parsingErrorString;
 
-    if (this->m_responseType == RAW)
+    if (this->m_responseType == JSON)
     {
-        this->m_netDataVariant.clear();
-        return (true);
-    }
-    else if (this->m_responseType == JSON &&
-        this->m_netReply->header(QNetworkRequest::ContentTypeHeader).toString().
-        left(16).compare("application/json") == 0) // Expect JSON, got JSON
-    {
+        if (contentType.left(16).compare("application/json",
+                                         Qt::CaseInsensitive) == 0) // JSON
+        {
+            QJsonParseError	jsonErr;
 
-        this->m_netDataVariant = QtJson::Json::parse(this->m_netDataRaw, parseOk);
-        if (parseOk)
-            return (true);
+            this->m_netDataMap = QJsonDocument::fromJson(response, &jsonErr)
+                                 .toVariant().toMap();
+            if (jsonErr.error == QJsonParseError::NoError)
+                return (true);
+            parsingErrorString = jsonErr.errorString();
+        }
     }
 
     qDebug() << "Error while parsing...";
+    QMessageBox::critical(0, tr("Parsing Error"), tr("Server error: ")+response+"\n\n"
+                          +tr("Client error: ")+parsingErrorString);
     emit this->parsingError();
     return (false);
 }
 // ---
 
 // Signals / Slots
-
-void	MXRequestManager::requestNetworkError(void)
+void	MXRequestManager::requestError(QNetworkReply::NetworkError code)
 {
-    qDebug() << "Network Error " << this->m_netReply->error()
-             << ": " << this->m_netReply->errorString();
+    if (code != QNetworkReply::NoError)
+        qDebug() << "Network Error " << code << ": " << this->m_netReply->errorString();
+    else
+        qDebug() << "Error Emitted: No Error...";
 
-    emit this->networkError();
+    QMessageBox::critical(0, tr("Network Error"),
+                          tr("There seems to be a network error:\n")
+                          +this->m_netReply->errorString());
 }
 
-void	MXRequestManager::requestFinished(void)
+void	MXRequestManager::requestFinished(QNetworkReply *reply)
 {
-    bool	requestError = NoError;
-    int		httpCode = this->netReply().
-                       attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    bool requestOk = true;
 
-    this->m_netDataRaw = this->m_netReply->readAll();
+    this->m_lastHttpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
     qDebug() << "##### Request Finished #####";
     qDebug() << "----- Request Data -----";
-    qDebug() << "Known headers:" << this->m_netRequest->rawHeaderList();
-    qDebug() << "Raw Query list:" << this->m_netRequest->url().queryItems();
-    qDebug() << "Encoded Query:" << this->m_netRequest->url().encodedQuery();
+    qDebug() << "API:" << this->m_netRequest->url().toDisplayString();
     qDebug() << "Ressource:" << this->m_netRequest->url().path();
+    qDebug() << "Known headers:" << this->m_netRequest->rawHeaderList();
+    qDebug() << "Encoded Query:" << this->m_netRequest->url().query(QUrl::FullyEncoded);
+    qDebug() << "Method:" <<
+                this->m_netRequest->attribute(QNetworkRequest::CustomVerbAttribute,
+                            QVariant("Unknown")).toString();
     qDebug() << "----- /Request Data -----";
-    qDebug() << "- Qt Network Error:" << this->m_netReply->error()
-             << " - " << this->m_netReply->errorString();
-    qDebug() << "- HTTP Error code:" << httpCode;
-    if (this->m_netReply->error() != QNetworkReply::NoError && httpCode == 0)
-    {
-        requestError |= NetworkError;
-        this->requestNetworkError();
-    }
+    qDebug() << "- HTTP Error code:" << this->m_lastHttpCode;
+    qDebug() << "- Qt Network Error:" << reply->error() << " - " << reply->errorString();
+    if (reply->error() != QNetworkReply::NoError && this->m_lastHttpCode == 0)
+        requestOk = false;
 
+    this->m_netDataRaw = reply->readAll();
     qDebug() << "--- Reply ---";
-    qDebug() << "- Headers:" << this->m_netReply->rawHeaderPairs();
+    qDebug() << "- Headers:" << reply->rawHeaderPairs();
     qDebug() << "- Body:" << this->m_netDataRaw;
     qDebug() << "--- /Reply ---";
 
     qDebug() << "##### /Request Finished #####";
 
-    if (!this->parseResponse())
-        requestError |= ParsingError;
-
-    if (requestError == NoError)
-    {
-        this->m_valid = true;
-        emit this->finishedSuccessfully();
-    }
+    if (!requestOk)
+        emit this->requestError(reply->error());
     else
-    {
-        emit this->requestError();
-        emit this->finishedWithError(httpCode, this->m_netReply->error());
-    }
-    emit this->requestDone();
+        emit this->finished(requestOk &&
+                                        this->parseResponse(reply->
+                                        header(QNetworkRequest::ContentTypeHeader)
+                                        .toString(), this->m_netDataRaw));
 }
 
 void	MXRequestManager::requestDownloadProgress(qint64 bytesReceived,
@@ -500,10 +484,11 @@ void	MXRequestManager::requestUploadProgress(qint64 bytesReceived,
     emit this->uploadProgress(bytesReceived, bytesTotal);
 }
 
-void	MXRequestManager::requestAuth(QNetworkReply __attribute__((unused))*reply,
+void	MXRequestManager::requestAuth(QNetworkReply /*__attribute__((unused))*/*reply,
                                       QAuthenticator *auth)
 {
-    qDebug() << "Requested HTTP AUTH !";
+    qDebug() << "HTTP Auth Required (" << reply->size() << "):" << reply->readAll();
+    qDebug() << "Auth available:" << this->m_netAuthUser << this->m_netAuthPass;
     auth->setUser(this->m_netAuthUser);
     auth->setPassword(this->m_netAuthPass);
 }

@@ -4,18 +4,16 @@
 #
 #-------------------------------------------------
 
-QT			= core network
+VERSION		= 1.0.235
 
-VERSION		= 0.5.114
+QT			+= widgets network
 
-TARGET		= MXRequestManager
+TARGET		= MXRequestManager2
 TEMPLATE	= lib
 CONFIG		+= staticlib
 
-SOURCES		+= MXRequestManager.cpp \
-			   json.cpp
-HEADERS		+= MXRequestManager.hpp \
-			   json.h
+SOURCES		+= MXRequestManager.cpp
+HEADERS		+= MXRequestManager.hpp
 
 INSTALLS	+= targethead
 INSTALLS	+= target

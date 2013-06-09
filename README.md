@@ -1,4 +1,4 @@
-MXRequestManager [for Qt]
+MXRequestManager [for Qt5]
 =========================
 
 Required
