@@ -27,6 +27,12 @@ MXRequestManager::MXRequestManager(QObject *parent) : QNetworkAccessManager(pare
     this->m_netRequest = new QNetworkRequest;
     this->setUserAgent();
 
+    // Hack: Keychain access
+    this->m_netProxy = this->proxy();
+    this->m_netProxy.setHostName(" ");
+    this->setProxy(this->m_netProxy);
+    // ---
+
     connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
     connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
             SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
@@ -47,6 +53,12 @@ MXRequestManager::MXRequestManager(QUrl apiUrl, QString authUser,
     this->m_netRequest = new QNetworkRequest;
     this->setUserAgent();
 
+    // Hack: Keychain access
+    this->m_netProxy = this->proxy();
+    this->m_netProxy.setHostName(" ");
+    this->setProxy(this->m_netProxy);
+    // ---
+
     connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
     connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
 }
@@ -61,6 +73,10 @@ MXRequestManager::MXRequestManager(MXRequestManager const& other)
     this->m_netAuthUser = other.m_netAuthUser;
     this->m_netAuthPass = other.m_netAuthPass;
     this->m_netBaseApiUrl = other.m_netBaseApiUrl;
+
+    // Hack: Keychain access
+    this->setProxy(other.m_netProxy);
+    // ---
 
     connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
     connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));

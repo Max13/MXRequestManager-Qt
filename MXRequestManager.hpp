@@ -34,6 +34,7 @@
 # include	<QtNetwork/QHostInfo>
 # include	<QtNetwork/QHttpMultiPart>
 # include	<QtNetwork/QNetworkAccessManager>
+# include   <QtNetwork/QNetworkProxy> // Hack about infinite keychain access
 # include	<QtNetwork/QNetworkReply>
 # include	<QtNetwork/QNetworkRequest>
 // ---
@@ -92,6 +93,7 @@ class MXRequestManager : public QNetworkAccessManager
         int                     m_lastHttpCode;
         SupportedContentTypes	m_responseType;
         QByteArray				m_netDataRaw;
+        QNetworkProxy           m_netProxy; // Hack: Keychain access
         QNetworkReply			*m_netReply;
         QNetworkRequest			*m_netRequest;
         QString					m_netAuthUser;
