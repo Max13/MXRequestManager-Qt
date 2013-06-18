@@ -60,7 +60,8 @@ MXRequestManager::MXRequestManager(QUrl apiUrl, QString authUser,
     // ---
 
     connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
-    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
+    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
+            SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
 }
 
 MXRequestManager::MXRequestManager(MXRequestManager const& other)
@@ -79,7 +80,8 @@ MXRequestManager::MXRequestManager(MXRequestManager const& other)
     // ---
 
     connect(this, SIGNAL(finished(QNetworkReply*)), SLOT(requestFinished(QNetworkReply*)));
-    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
+    connect(this, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
+            SLOT(requestAuth(QNetworkReply*,QAuthenticator*)));
 }
 
 MXRequestManager::~MXRequestManager()
@@ -504,8 +506,8 @@ void	MXRequestManager::requestAuth(QNetworkReply /*__attribute__((unused))*/*rep
                                       QAuthenticator *auth)
 {
     qDebug() << "HTTP Auth Required (" << reply->size() << "):" << reply->readAll();
-    qDebug() << "Auth available:" << this->m_netAuthUser << this->m_netAuthPass;
     auth->setUser(this->m_netAuthUser);
     auth->setPassword(this->m_netAuthPass);
+    qDebug() << "Auth available:" << auth->username() << auth->password();
 }
 // ---
