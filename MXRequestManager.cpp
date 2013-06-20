@@ -508,6 +508,6 @@ void	MXRequestManager::requestAuth(QNetworkReply /*__attribute__((unused))*/*rep
     qDebug() << "HTTP Auth Required (" << reply->size() << "):" << reply->readAll();
     auth->setUser(this->m_netAuthUser);
     auth->setPassword(this->m_netAuthPass);
-    qDebug() << "Auth available:" << auth->username() << auth->password();
+    qDebug() << "Auth available:" << auth->user() << auth->password();
 }
 // ---

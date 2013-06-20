@@ -4,9 +4,12 @@
 #
 #-------------------------------------------------
 
-VERSION		= 1.0.235
-
 QT			+= widgets network
+
+VER_MAJ     =   2
+VER_MIN     =   2
+VER_BLD     =   $$cat(BUILD, lines)
+VERSION     =   $${VER_MAJ}.$${VER_MIN}.$${VER_BLD}
 
 TARGET		= MXRequestManager2
 TEMPLATE	= lib
