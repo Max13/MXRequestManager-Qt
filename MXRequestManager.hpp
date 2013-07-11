@@ -43,7 +43,7 @@
 # include	<QVariantMap>
 
 # define	MXREQUESTMANAGER_NAME		"MXRequestManager"
-# define	MXREQUESTMANAGER_VERSION	"1.2"
+# define	MXREQUESTMANAGER_VERSION	"1.3"
 
 # if		defined(__MACH__)
 #	define	MXREQUESTMANAGER_PLATEFORM	"MacOS"
@@ -90,6 +90,7 @@ class MXRequestManager : public QNetworkAccessManager
         };
 
     private:
+        int                     m_httpAuthCount;
         int                     m_lastHttpCode;
         SupportedContentTypes	m_responseType;
         QByteArray				m_netDataRaw;
@@ -383,6 +384,11 @@ class MXRequestManager : public QNetworkAccessManager
          * finishedWithNoError tell if there was a network error
          */
         void	finished(bool finishedWithNoError);
+
+        /**
+         * Emitted when a request is finished with a request error
+         */
+        void	finishedWithError(void);
 
         /**
          * Emitted when there is an error while treating the reply

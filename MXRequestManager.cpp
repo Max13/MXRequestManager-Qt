@@ -239,8 +239,10 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
 bool	MXRequestManager::request(QString const& resource, QString const& method,
                                   MXPairList const& data) // Will be called
 {
+    this->m_httpAuthCount = 0;
+
     QUrlQuery	urlQuery;
-    QUrl apiUrl(this->m_netBaseApiUrl);
+    QUrl        apiUrl(this->m_netBaseApiUrl);
 
     apiUrl.setPath(resource);
     urlQuery.setQueryItems(data);
@@ -305,6 +307,7 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
 bool	MXRequestManager::request(QString const& resource, QString const& method,
                                   QIODevice *data)
 {
+    this->m_httpAuthCount = 0;
     if (resource.isEmpty() || method.isEmpty())
         return (false);
 
@@ -340,6 +343,7 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
 bool	MXRequestManager::request(QString const& resource, QString const& method,
                                   QByteArray const& data)
 {
+    this->m_httpAuthCount = 0;
     if (resource.isEmpty() || method.isEmpty())
         return (false);
 
@@ -375,6 +379,7 @@ bool	MXRequestManager::request(QString const& resource, QString const& method,
 bool	MXRequestManager::request(QString const& resource, QString const& method,
                                   QHttpMultiPart *data)
 {
+    this->m_httpAuthCount = 0;
     if (resource.isEmpty() || method.isEmpty())
         return (false);
 
@@ -446,6 +451,9 @@ void	MXRequestManager::requestError(QNetworkReply::NetworkError code)
     QMessageBox::critical(0, tr("Network Error"),
                           tr("There seems to be a network error:\n")
                           +this->m_netReply->errorString());
+
+    emit this->finishedWithError();
+    emit this->finished(false);
 }
 
 void	MXRequestManager::requestFinished(QNetworkReply *reply)
@@ -478,7 +486,7 @@ void	MXRequestManager::requestFinished(QNetworkReply *reply)
     qDebug() << "##### /Request Finished #####";
 
     if (!requestOk)
-        emit this->requestError(reply->error());
+        this->requestError(reply->error());
     else
         emit this->finished(requestOk &&
                                         this->parseResponse(reply->
@@ -505,6 +513,11 @@ void	MXRequestManager::requestUploadProgress(qint64 bytesReceived,
 void	MXRequestManager::requestAuth(QNetworkReply /*__attribute__((unused))*/*reply,
                                       QAuthenticator *auth)
 {
+    if (++this->m_httpAuthCount == 2) {
+        qDebug() << "Wrong HTTP Auth credentials, abording.";
+        this->m_netReply->abort();
+    }
+
     qDebug() << "HTTP Auth Required (" << reply->size() << "):" << reply->readAll();
     auth->setUser(this->m_netAuthUser);
     auth->setPassword(this->m_netAuthPass);
