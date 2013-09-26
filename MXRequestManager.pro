@@ -11,6 +11,9 @@ VER_MIN     =   2
 VER_BLD     =   $$cat(BUILD, lines)
 VERSION     =   $${VER_MAJ}.$${VER_MIN}.$${VER_BLD}
 
+win32:system(scripts/get_build.bat)
+else:system(scripts/get_build.bash --next)
+
 TARGET		= MXRequestManager2
 TEMPLATE	= lib
 CONFIG		+= staticlib
