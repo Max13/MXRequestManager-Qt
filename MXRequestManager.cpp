@@ -433,8 +433,6 @@ bool	MXRequestManager::parseResponse(QString const& contentType,
     }
 
     qDebug() << "Error while parsing...";
-    QMessageBox::critical(0, tr("Parsing Error"), tr("Server error: ")+response+"\n\n"
-                          +tr("Client error: ")+parsingErrorString);
     emit this->parsingError();
     return (false);
 }
@@ -447,10 +445,6 @@ void	MXRequestManager::requestError(QNetworkReply::NetworkError code)
         qDebug() << "Network Error " << code << ": " << this->m_netReply->errorString();
     else
         qDebug() << "Error Emitted: No Error...";
-
-    QMessageBox::critical(0, tr("Network Error"),
-                          tr("There seems to be a network error:\n")
-                          +this->m_netReply->errorString());
 
     emit this->finishedWithError();
     emit this->finished(false);
