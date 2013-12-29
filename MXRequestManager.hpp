@@ -26,7 +26,6 @@
 # include	<QJsonDocument>
 # include	<QJsonParseError>
 # include	<QList>
-# include	<QMessageBox>
 # include	<QPair>
 # include	<QString>
 // QtNetwork
