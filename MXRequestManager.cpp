@@ -432,7 +432,10 @@ bool	MXRequestManager::parseResponse(QString const& contentType,
         }
     }
 
-    qDebug() << "Error while parsing...";
+    qDebug() << "Parsing Error:\n";
+    qDebug() << "Server error: " + response + "\n"
+    qDebug() << "Client error: " + parsingErrorString;
+    
     emit this->parsingError();
     return (false);
 }
