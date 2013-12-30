@@ -3,7 +3,7 @@
  *
  * @details		REST Request Manager by Max13
  *
- * @version		1.0
+ * @version		1.4
  * @author		Adnan "Max13" RIHAN <adnan@rihan.fr>
  * @link		http://rihan.fr/
  * @copyright	http://creativecommons.org/licenses/by-sa/3.0/	CC-by-sa 3.0
@@ -26,7 +26,6 @@
 # include	<QJsonDocument>
 # include	<QJsonParseError>
 # include	<QList>
-# include	<QMessageBox>
 # include	<QPair>
 # include	<QString>
 // QtNetwork
@@ -43,7 +42,7 @@
 # include	<QVariantMap>
 
 # define	MXREQUESTMANAGER_NAME		"MXRequestManager"
-# define	MXREQUESTMANAGER_VERSION	"1.3"
+# define	MXREQUESTMANAGER_VERSION	"1.4"
 
 # if		defined(__MACH__)
 #	define	MXREQUESTMANAGER_PLATEFORM	"MacOS"

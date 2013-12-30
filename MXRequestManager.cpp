@@ -4,7 +4,7 @@
  *
  * @details		REST Request Manager by Max13
  *
- * @version		1.0
+ * @version		1.4
  * @author		Adnan "Max13" RIHAN <adnan@rihan.fr>
  * @link		http://rihan.fr/
  * @copyright	http://creativecommons.org/licenses/by-sa/3.0/	CC-by-sa 3.0
@@ -432,10 +432,12 @@ bool	MXRequestManager::parseResponse(QString const& contentType,
         }
     }
 
-    qDebug() << "Error while parsing...";
-    QMessageBox::critical(0, tr("Parsing Error"), tr("Server error: ")+response+"\n\n"
-                          +tr("Client error: ")+parsingErrorString);
+    qDebug() << "= Parsing error =";
+    qDebug() << "Server error:" << response;
+    qDebug() << "Client error:" << parsingErrorString;
+
     emit this->parsingError();
+    emit this->finishedWithError();
     return (false);
 }
 // ---
@@ -447,10 +449,6 @@ void	MXRequestManager::requestError(QNetworkReply::NetworkError code)
         qDebug() << "Network Error " << code << ": " << this->m_netReply->errorString();
     else
         qDebug() << "Error Emitted: No Error...";
-
-    QMessageBox::critical(0, tr("Network Error"),
-                          tr("There seems to be a network error:\n")
-                          +this->m_netReply->errorString());
 
     emit this->finishedWithError();
     emit this->finished(false);
@@ -510,8 +508,8 @@ void	MXRequestManager::requestUploadProgress(qint64 bytesReceived,
     emit this->uploadProgress(bytesReceived, bytesTotal);
 }
 
-void	MXRequestManager::requestAuth(QNetworkReply /*__attribute__((unused))*/*reply,
-                                      QAuthenticator *auth)
+void	MXRequestManager::requestAuth(QNetworkReply     *reply,
+                                      QAuthenticator    *auth)
 {
     if (++this->m_httpAuthCount == 2) {
         qDebug() << "Wrong HTTP Auth credentials, abording.";
