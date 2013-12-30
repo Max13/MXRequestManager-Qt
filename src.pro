@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT			+= widgets network
+QT			+= network
 
 VER_MAJ     =   2
 VER_MIN     =   2
@@ -20,6 +20,8 @@ CONFIG		+= staticlib
 
 SOURCES		+= MXRequestManager.cpp
 HEADERS		+= MXRequestManager.hpp
+
+CONFIG(debug, debug|release):  DEFINES += QT_NO_DEBUG_OUTPUT
 
 INSTALLS	+= targethead
 INSTALLS	+= target
